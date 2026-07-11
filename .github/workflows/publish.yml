@@ -4,16 +4,12 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
 
-
 permissions:
   contents: write
 
 jobs:
-  create-packages:
-    strategy:
-      matrix:
-        os: [ "ubuntu-latest", "ubuntu-24.04-arm", "windows-2022", "windows-11-arm", "macos-15-intel", "macos-15" ]
-    runs-on: ${{ matrix.os }}
+  build-android:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -34,79 +30,42 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ matrix.os }}-gradle
-          enableCrossOsArchive: true
-
-      - name: Skip Android build (build android only on Ubuntu)
-        if: matrix.os != 'ubuntu-latest'
-        shell: "bash"
-        run: |
-          echo "SKIP_ANDROID_BUILD=true" >> $GITHUB_ENV
-
-      - name: Use Android Secrets
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          echo "ABDM_KEYSTORE_FILE=${{ secrets.ABDM_KEYSTORE_FILE }}" >> $GITHUB_ENV
-          echo "ABDM_KEYSTORE_FILE_PASSWORD=${{ secrets.ABDM_KEYSTORE_FILE_PASSWORD }}" >> $GITHUB_ENV
-          echo "ABDM_KEYSTORE_KEY_ALIAS=${{ secrets.ABDM_KEYSTORE_KEY_ALIAS }}" >> $GITHUB_ENV
-          echo "ABDM_KEYSTORE_KEY_PASSWORD=${{ secrets.ABDM_KEYSTORE_KEY_PASSWORD }}" >> $GITHUB_ENV
-
-      # Steps specific to macOS (to create DMG for macOS)
-      - name: Install create-dmg (for macOS)
-        if: startsWith(matrix.os, 'macos-')
-        run: |
-          brew install create-dmg
+          key: ubuntu-latest-gradle
 
       - name: Gradle
-        run: |
-          ./gradlew
-        shell: "bash"
-
-      - name: Build package for current OS using gradle
+        run: ./gradlew
         shell: bash
-        run: |
-          ./gradlew createReleaseFolderForCi
 
-      - name: Release Gradle to unlock cache files
+      - name: Build APK for CI (unsigned)
         shell: bash
-        run: |
-          ./gradlew -stop
+        run: ./gradlew createReleaseFolderForCi
+        env:
+          SKIP_DESKTOP_BUILD: "true"
+          SKIP_ANDROID_SIGNING: "true"
 
-      - name: Upload output to artifacts
+      - name: Upload APK to artifacts
         uses: actions/upload-artifact@v4
         with:
           path: ./build/ci-release
-          name: app-${{ matrix.os }}
+          name: apk-release
 
   release:
-    runs-on: "ubuntu-latest"
-    needs: [ "create-packages" ]
+    runs-on: ubuntu-latest
+    needs: [build-android]
     steps:
-      - uses: "actions/download-artifact@v4"
-        name: "Download All Artifacts Into One Directory"
+      - uses: actions/download-artifact@v4
+        name: Download APK artifact
         with:
           path: release
-          pattern: app-*
-          merge-multiple: true
-
-      - name: Version Info
-        id: version
-        uses: nowsprinting/check-version-format-action@v3
-        with:
-          prefix: "v"
+          name: apk-release
 
       - name: "Show the output tree of release"
-        run: |
-          tree .
+        run: tree .
+
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: ${{ !steps.version.outputs.is_stable }}
+          prerelease: true
           make_latest: legacy
           draft: true
           files: |
             release/binaries/*
-          body_path: release/release-notes.md
-      - name: "Remove artifacts to free space"
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: app-*

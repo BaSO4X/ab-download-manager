@@ -27,6 +27,8 @@ class DownloadSystemService : Service(), KoinComponent {
             AndroidConstants.SERVICE_NOTIFICATION_ID,
             abdmServiceNotificationManager.createMainNotification()
         )
+        // 立即移除前台服务通知，使"服务运行中"通知不显示
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         abdmServiceNotificationManager.startUpdatingNotifications()
         Log.i("DownloadSystemService", "onStartCommand: service goes to foreground")
         return START_STICKY

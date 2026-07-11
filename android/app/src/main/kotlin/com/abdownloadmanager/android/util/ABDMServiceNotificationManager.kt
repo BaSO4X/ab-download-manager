@@ -398,9 +398,9 @@ class ABDMServiceNotificationManager(
         LaunchedEffect(reason, statusString, LocalNotificationUpdateSignal.current) {
             @SuppressLint("MissingPermission")
             runCatching {
-                notificationManagerCompat.notify(
+                // 取消"服务运行中"通知，使其不显示
+                notificationManagerCompat.cancel(
                     AndroidConstants.SERVICE_NOTIFICATION_ID,
-                    createMainNotification(reason, statusString)
                 )
             }.onFailure {
                 it.printStackTrace()

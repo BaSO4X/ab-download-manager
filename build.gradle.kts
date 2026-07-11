@@ -67,12 +67,7 @@ val createChangeNoteForCi by tasks.registering {
 
 val createReleaseFolderForCi by tasks.registering {
     val createBinariesForCi = CiUtils.getCreateBinaryFolderForCiTaskName()
-    val skipDesktopBuild = System.getenv("SKIP_DESKTOP_BUILD")
-        ?.toBoolean()
-        ?: false
-    if (!skipDesktopBuild) {
-        dependsOn("desktop:app:$createBinariesForCi")
-    }
+    dependsOn("desktop:app:$createBinariesForCi")
     val skipAndroidBuild = System.getenv("SKIP_ANDROID_BUILD")
         ?.toBoolean()
         ?: false

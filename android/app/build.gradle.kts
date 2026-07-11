@@ -86,29 +86,18 @@ androidComponents.onVariants { variant ->
     }
 }
 
-val skipAndroidSigning = System.getenv("SKIP_ANDROID_SIGNING")
-    ?.toBoolean()
-    ?: false
-
 val androidBinaries by tasks.registering {
-    if (!skipAndroidSigning) {
-        val signedApks = tasks.named("createReleaseSignedBinaryRelease")
-            .map { task ->
-                task.outputs.files.singleFile
-            }
-        inputs.dir(signedApks)
-    }
+    val signedApks = tasks.named("createReleaseSignedBinaryRelease")
+        .map { task ->
+            task.outputs.files.singleFile
+        }
+    inputs.dir(signedApks)
     outputs.dir(ciDir.binariesDir)
     doLast {
         // at the moment we only have one apk
         // if I decided to add multiple targets (arm64 x64 etc..)
         // ... I need to extract arch and use forEach instead of first
-        val apkDir = if (skipAndroidSigning) {
-            project.layout.buildDirectory.dir("outputs/apk/release").get().asFile
-        } else {
-            tasks.named("createReleaseSignedBinaryRelease").get().outputs.files.singleFile
-        }
-        val apk = apkDir.listFiles()
+        val signedApk = signedApks.get().listFiles()
             .first { it.name.endsWith(".apk") }
         val outputFileName = CiUtils.getTargetFileName(
             getAppName(),
@@ -117,7 +106,7 @@ val androidBinaries by tasks.registering {
             null,
         )
         CiUtils.copyAndHashToDestination(
-            src = apk,
+            src = signedApk,
             destinationFolder = ciDir.binariesDir.get().asFile,
             name = outputFileName,
         )
